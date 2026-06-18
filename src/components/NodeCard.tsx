@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Clock, type LucideIcon } from 'lucide-react'
+import { ArrowDown, ArrowUp, Clock, Cpu, HardDrive, MemoryStick, type LucideIcon } from 'lucide-react'
 import { Badge } from './ui/badge'
 import { Card } from './ui/card'
 import { Progress } from './ui/progress'
@@ -45,13 +45,15 @@ export function NodeCard({ node }: { node: Node }) {
           )}
 
           <div className="flex flex-col gap-2.5">
-            <Metric label="CPU" value={u.cpu} sub={cpu || null} subTitle={cpu || undefined} />
+            <Metric icon={Cpu} label="CPU" value={u.cpu} sub={cpu || null} subTitle={cpu || undefined} />
             <Metric
+                icon={MemoryStick}
                 label="内存"
                 value={u.mem}
                 sub={u.memTotal ? `${bytes(u.memUsed)} / ${bytes(u.memTotal)}` : null}
             />
             <Metric
+                icon={HardDrive}
                 label="磁盘"
                 value={u.disk}
                 sub={u.diskTotal ? `${bytes(u.diskUsed)} / ${bytes(u.diskTotal)}` : null}
@@ -99,20 +101,25 @@ function Stat({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode 
 }
 
 function Metric({
-                  label,
-                  value,
-                  sub,
-                  subTitle,
-                }: {
-  label: string
-  value: number | undefined
-  sub?: string | null
-  subTitle?: string
+  icon: Icon,
+  label,
+  value,
+  sub,
+  subTitle,
+}: {
+  icon?: LucideIcon;
+  label: string;
+  value: number | undefined;
+  sub?: string | null;
+  subTitle?: string;
 }) {
   return (
       <div className="min-w-0">
         <div className="flex justify-between text-xs">
-          <span className="text-muted-foreground">{label}</span>
+          <span className="text-muted-foreground flex items-center gap-1">
+            {Icon && <Icon className="h-3 w-3" />}
+            {label}
+          </span>
           <span className="font-mono">{pct(value)}</span>
         </div>
         <Progress value={value} indicatorClassName={loadColor(value)} className="mt-1 h-1.5" />
