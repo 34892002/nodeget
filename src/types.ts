@@ -86,6 +86,7 @@ export interface Node {
   static: StaticData
   dynamic: DynamicSummary | null
   history: HistorySample[]
+  traffic: TrafficConfig | null
 }
 
 export interface ThemeConfig {
@@ -170,4 +171,10 @@ export interface Usage {
   netOut?: number
   uptime?: number
   ts?: number
+}
+
+export interface TrafficConfig {
+  trafficLimit: number | null
+  trafficPeriod: 'monthly' | 'daily'
+  trafficResetDay: number
 }

@@ -15,10 +15,10 @@ import { Button } from './ui/button'
 import { Card } from './ui/card'
 import { Flag } from './Flag'
 import { StatusDot } from './StatusDot'
-import { bytes, pct, relativeAge, uptime } from '../utils/format'
+import { bytes, pct, relativeAge, trafficPeriodLabel, uptime } from '../utils/format'
 import { deriveUsage, displayName, distroLogo, osLabel, virtLabel } from '../utils/derive'
 import { cycleProgress, hasCost, remainingDays, remainingValue } from '../utils/cost'
-import { cn, strokeColor } from '../utils/cn'
+import { cn, strokeColor, trafficColor } from '../utils/cn'
 import {
   buildLatencyChart,
   computeLatencyStats,
@@ -26,7 +26,7 @@ import {
 } from '../utils/latency'
 import { useNodeLatency } from '../hooks/useNodeLatency'
 import type { BackendPool } from '../api/pool'
-import type { HistorySample, LatencyType, Node, NodeMeta, TaskQueryResult } from '../types'
+import type { HistorySample, LatencyType, Node, NodeMeta, TaskQueryResult, TrafficConfig } from '../types'
 
 const TOOLTIP_STYLE = {
   background: 'hsl(var(--popover))',
@@ -162,6 +162,16 @@ export function NodeDetail({ node, onClose, showSource, pool }: Props) {
             )}
           </div>
         </Section>
+
+        {node.traffic?.trafficLimit && (
+          <Section title="流量监控">
+            <TrafficDetail
+              traffic={node.traffic}
+              totalReceived={d?.total_received ?? 0}
+              totalTransmitted={d?.total_transmitted ?? 0}
+            />
+          </Section>
+        )}
 
         {history.length > 1 && (
           <Section title={`近 ${history.length * 2} 秒趋势`}>
@@ -554,5 +564,67 @@ function CostSection({ meta }: { meta: NodeMeta }) {
         </div>
       )}
     </Section>
+  )
+}
+
+function TrafficDetail({
+  traffic,
+  totalReceived,
+  totalTransmitted,
+}: {
+  traffic: TrafficConfig
+  totalReceived: number
+  totalTransmitted: number
+}) {
+  const used = totalReceived + totalTransmitted
+  const limit = traffic.trafficLimit!
+  const percent = (used / limit) * 100
+  const over = percent >= 100
+  const color = trafficColor(percent)
+
+  const statusText = over
+    ? '已超出限制!'
+    : percent >= 90
+      ? '即将用尽'
+      : percent >= 75
+        ? '用量较高'
+        : '用量正常'
+
+  const statusClass = over
+    ? 'text-rose-500 font-semibold'
+    : percent >= 90
+      ? 'text-rose-500'
+      : percent >= 75
+        ? 'text-amber-500'
+        : 'text-emerald-500'
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+        <KV k="流量上限" v={bytes(limit)} />
+        <KV k="重置周期" v={trafficPeriodLabel(traffic.trafficPeriod, traffic.trafficResetDay)} />
+        <KV k="已使用" v={<span className={statusClass}>{bytes(used)}</span>} />
+        <KV k="剩余" v={over ? <span className="text-rose-500">0 B</span> : bytes(limit - used)} />
+      </div>
+
+      <div className="space-y-1.5">
+        <div className="flex justify-between text-sm">
+          <span className="text-muted-foreground">使用进度</span>
+          <span className={cn('font-mono', statusClass)}>{pct(Math.min(percent, 200))}</span>
+        </div>
+        <div className="h-3 w-full rounded-full bg-muted overflow-hidden">
+          <div
+            className={cn('h-full rounded-full transition-all', color)}
+            style={{ width: `${Math.min(percent, 100)}%` }}
+          />
+        </div>
+        <div className="flex justify-between text-xs text-muted-foreground">
+          <span className={statusClass}>{statusText}</span>
+          <span>
+            {bytes(used)} / {bytes(limit)}
+          </span>
+        </div>
+      </div>
+    </div>
   )
 }

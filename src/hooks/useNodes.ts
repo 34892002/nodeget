@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { BackendPool } from '../api/pool'
 import { dynamicSummaryMulti, kvGetMulti, listAgentUuids, staticDataMulti } from '../api/methods'
 import { isOnline } from '../utils/status'
-import type { DynamicSummary, HistorySample, Node, NodeMeta, SiteConfig } from '../types'
+import type { DynamicSummary, HistorySample, Node, NodeMeta, SiteConfig, TrafficConfig } from '../types'
 
-type Agent = Pick<Node, 'uuid' | 'source' | 'meta' | 'static'>
+type Agent = Pick<Node, 'uuid' | 'source' | 'meta' | 'static'> & { traffic: TrafficConfig | null }
 
 interface BackendError {
   source: string
@@ -49,6 +49,9 @@ const META_KEYS = [
   'metadata_price_unit',
   'metadata_price_cycle',
   'metadata_expire_time',
+  'metadata_traffic_limit',
+  'metadata_traffic_period',
+  'metadata_traffic_reset_day',
 ]
 const DYN_INTERVAL_MS = 2000
 const HISTORY_LIMIT = 60
@@ -71,7 +74,19 @@ function emptyMeta(): NodeMeta {
 }
 
 function blankAgent(uuid: string, source: string): Agent {
-  return { uuid, source, meta: emptyMeta(), static: {} }
+  return { uuid, source, meta: emptyMeta(), static: {}, traffic: null }
+}
+
+function parseTraffic(raw: Record<string, unknown>): TrafficConfig | null {
+  const limit = Number(raw.metadata_traffic_limit)
+  const period = String(raw.metadata_traffic_period || '')
+  const resetDay = Number(raw.metadata_traffic_reset_day)
+  if (!Number.isFinite(limit) || limit <= 0) return null
+  return {
+    trafficLimit: limit,
+    trafficPeriod: period === 'daily' ? 'daily' : 'monthly',
+    trafficResetDay: Number.isFinite(resetDay) && resetDay >= 1 && resetDay <= 28 ? resetDay : 1,
+  }
 }
 
 function parseMeta(raw: Record<string, unknown>): NodeMeta {
@@ -165,8 +180,9 @@ export function useNodes(config: SiteConfig | null) {
                 bucket[row.key] = row.value
               }
               for (const uuid of uuids) {
+                const raw = grouped.get(uuid) ?? {}
                 const cur = next.get(uuid) ?? blankAgent(uuid, entry.name)
-                next.set(uuid, { ...cur, meta: parseMeta(grouped.get(uuid) ?? {}) })
+                next.set(uuid, { ...cur, meta: parseMeta(raw), traffic: parseTraffic(raw) })
               }
             }
 

@@ -4,6 +4,7 @@ import { Progress } from './ui/progress'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
 import { Flag } from './Flag'
 import { StatusDot } from './StatusDot'
+import { TrafficBar } from './TrafficBar'
 import { bytes, pct, relativeAge } from '../utils/format'
 import { deriveUsage, displayName, distroLogo, virtLabel } from '../utils/derive'
 import { cn, loadColor } from '../utils/cn'
@@ -27,6 +28,7 @@ export function NodeTable({ nodes, onOpen }: Props) {
             <TableHead>CPU</TableHead>
             <TableHead>内存</TableHead>
             <TableHead>磁盘</TableHead>
+            <TableHead>流量</TableHead>
             <TableHead>下行</TableHead>
             <TableHead>上行</TableHead>
             <TableHead>更新</TableHead>
@@ -89,6 +91,19 @@ export function NodeTable({ nodes, onOpen }: Props) {
                     value={u.disk}
                     hint={u.diskTotal ? `${bytes(u.diskUsed)} / ${bytes(u.diskTotal)}` : null}
                   />
+                </TableCell>
+                <TableCell>
+                  {n.traffic?.trafficLimit ? (
+                    <CellBar
+                      value={(() => {
+                        const used = (n.dynamic?.total_received ?? 0) + (n.dynamic?.total_transmitted ?? 0)
+                        return (used / n.traffic.trafficLimit) * 100
+                      })()}
+                      hint={`${bytes((n.dynamic?.total_received ?? 0) + (n.dynamic?.total_transmitted ?? 0))} / ${bytes(n.traffic.trafficLimit)}`}
+                    />
+                  ) : (
+                    <span className="text-muted-foreground text-sm">—</span>
+                  )}
                 </TableCell>
                 <TableCell className="font-mono">{bytes(u.netIn || 0)}/s</TableCell>
                 <TableCell className="font-mono">{bytes(u.netOut || 0)}/s</TableCell>

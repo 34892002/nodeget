@@ -1,0 +1,34 @@
+{
+  "name": "traffic-monitor",
+  "icon": "icon.svg",
+  "routes": [
+    {
+      "type": "node",
+      "name": "traffic-config",
+      "icon": "route-icon.svg",
+      "entry": "index.html"
+    }
+  ],
+  "limits": [
+    {
+      "scopes": [
+        {
+          "global": null
+        }
+      ],
+      "permissions": [
+        { "monitoring_uuid": "list" },
+        { "kv": { "read": "metadata_*" } },
+        { "kv": { "write": "metadata_*" } },
+        { "dynamic_monitoring_summary": "read" }
+      ]
+    }
+  ],
+  "version": "1.0",
+  "description": "为节点配置流量上限，在状态展示页面显示流量进度条",
+  "extension_version": 1,
+  "author": "",
+  "repository": "",
+  "homepage": "",
+  "license": ""
+}

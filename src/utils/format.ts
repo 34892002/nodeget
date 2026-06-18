@@ -25,3 +25,8 @@ export function relativeAge(ts?: number | null, now = Date.now()) {
   if (s < 3600) return `${Math.round(s / 60)} 分钟前`
   return `${Math.round(s / 3600)} 小时前`
 }
+
+export function trafficPeriodLabel(period: 'monthly' | 'daily', resetDay?: number) {
+  if (period === 'daily') return '每天重置'
+  return resetDay ? `每月${resetDay}号重置` : '每月重置'
+}
