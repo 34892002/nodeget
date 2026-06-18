@@ -4,6 +4,8 @@ import { bytes, pct, trafficPeriodLabel } from '../utils/format'
 import { trafficColor } from '../utils/cn'
 import type { TrafficConfig } from '../types'
 
+const GB = 1073741824
+
 interface Props {
   traffic: TrafficConfig | null
   totalReceived: number
@@ -12,17 +14,17 @@ interface Props {
 }
 
 export function TrafficBar({ traffic, totalReceived, totalTransmitted, compact }: Props) {
-  if (!traffic?.trafficLimit) return null
+  if (!traffic?.trafficLimitGb) return null
 
   const used = totalReceived + totalTransmitted
-  const limit = traffic.trafficLimit
+  const limit = traffic.trafficLimitGb * GB
   const percent = (used / limit) * 100
   const over = percent >= 100
   const color = trafficColor(percent)
 
   if (compact) {
     return (
-      <div className="min-w-0" title={trafficPeriodLabel(traffic.trafficPeriod, traffic.trafficResetDay)}>
+      <div className="min-w-0" title={trafficPeriodLabel(traffic.trafficPeriod)}>
         <div className="flex justify-between text-xs">
           <span className="text-muted-foreground flex items-center gap-1">
             <Wifi className="h-3 w-3" />
@@ -52,7 +54,7 @@ export function TrafficBar({ traffic, totalReceived, totalTransmitted, compact }
           流量使用
         </span>
         <span className="text-xs text-muted-foreground">
-          {trafficPeriodLabel(traffic.trafficPeriod, traffic.trafficResetDay)}
+          {trafficPeriodLabel(traffic.trafficPeriod)}
         </span>
       </div>
       <div className="flex items-center justify-between text-sm">

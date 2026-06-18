@@ -1,36 +1,26 @@
-import { createDeferred, type Deferred } from './utils'
-
-interface JsonRpcResponse {
-  id: string
-  result?: unknown
-  error?: { code?: number; message?: string }
-}
+import { createDeferred } from './utils'
 
 export class WebSocketRPCClient {
-  private url: string
-  private ws: WebSocket | null = null
-  private pending = new Map<string, Deferred>()
-  private connectPromise: Promise<void> | null = null
-  private forcedClose = false
-
-  constructor(url: string) {
+  constructor(url) {
     this.url = url
+    this.ws = null
+    this.pending = new Map()
+    this.connectPromise = null
+    this.forcedClose = false
   }
 
-  connect(): Promise<void> {
+  connect() {
     if (this.connectPromise) return this.connectPromise
 
-    this.connectPromise = new Promise<void>((resolve, reject) => {
+    this.connectPromise = new Promise((resolve, reject) => {
       const ws = new WebSocket(this.url)
       this.ws = ws
 
-      ws.onopen = () => {
-        resolve()
-      }
+      ws.onopen = () => resolve()
 
       ws.onmessage = (e) => {
         try {
-          const data: JsonRpcResponse = JSON.parse(String(e.data))
+          const data = JSON.parse(String(e.data))
           const deferred = this.pending.get(data.id)
           if (deferred) {
             this.pending.delete(data.id)
@@ -45,17 +35,13 @@ export class WebSocketRPCClient {
         }
       }
 
-      ws.onerror = () => {
-        reject(new Error('WebSocket connection failed'))
-      }
+      ws.onerror = () => reject(new Error('WebSocket connection failed'))
 
       ws.onclose = () => {
         this.connectPromise = null
         if (!this.forcedClose) {
-          // Auto reconnect after 2s
           setTimeout(() => this.connect(), 2000)
         }
-        // Reject all pending requests
         for (const [, deferred] of this.pending) {
           deferred.reject(new Error('WebSocket closed'))
         }
@@ -66,14 +52,14 @@ export class WebSocketRPCClient {
     return this.connectPromise
   }
 
-  async rpc<T = unknown>(method: string, params: Record<string, unknown> = {}): Promise<T> {
+  async rpc(method, params = {}) {
     await this.connect()
 
     const id = crypto.randomUUID()
-    const deferred = createDeferred<T>()
-    this.pending.set(id, deferred as Deferred)
+    const deferred = createDeferred()
+    this.pending.set(id, deferred)
 
-    this.ws!.send(JSON.stringify({
+    this.ws.send(JSON.stringify({
       jsonrpc: '2.0',
       method,
       params,

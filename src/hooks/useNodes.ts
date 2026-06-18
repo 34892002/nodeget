@@ -51,7 +51,6 @@ const META_KEYS = [
   'metadata_expire_time',
   'metadata_traffic_limit',
   'metadata_traffic_period',
-  'metadata_traffic_reset_day',
 ]
 const DYN_INTERVAL_MS = 2000
 const HISTORY_LIMIT = 60
@@ -78,14 +77,13 @@ function blankAgent(uuid: string, source: string): Agent {
 }
 
 function parseTraffic(raw: Record<string, unknown>): TrafficConfig | null {
-  const limit = Number(raw.metadata_traffic_limit)
+  const limitGb = Number(raw.metadata_traffic_limit)
   const period = String(raw.metadata_traffic_period || '')
-  const resetDay = Number(raw.metadata_traffic_reset_day)
-  if (!Number.isFinite(limit) || limit <= 0) return null
+  if (!Number.isFinite(limitGb) || limitGb <= 0) return null
+  const validPeriods = ['hourly', 'daily', 'weekly', 'monthly', 'never'] as const
   return {
-    trafficLimit: limit,
-    trafficPeriod: period === 'daily' ? 'daily' : 'monthly',
-    trafficResetDay: Number.isFinite(resetDay) && resetDay >= 1 && resetDay <= 28 ? resetDay : 1,
+    trafficLimitGb: limitGb,
+    trafficPeriod: validPeriods.includes(period as any) ? period as any : 'monthly',
   }
 }
 

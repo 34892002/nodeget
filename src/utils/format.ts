@@ -26,7 +26,13 @@ export function relativeAge(ts?: number | null, now = Date.now()) {
   return `${Math.round(s / 3600)} 小时前`
 }
 
-export function trafficPeriodLabel(period: 'monthly' | 'daily', resetDay?: number) {
-  if (period === 'daily') return '每天重置'
-  return resetDay ? `每月${resetDay}号重置` : '每月重置'
+export function trafficPeriodLabel(period: string) {
+  const map: Record<string, string> = {
+    hourly: '每小时重置',
+    daily: '每天重置',
+    weekly: '每周重置',
+    monthly: '每月重置',
+    never: '从不重置',
+  }
+  return map[period] || '每月重置'
 }

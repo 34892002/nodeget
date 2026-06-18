@@ -93,13 +93,14 @@ export function NodeTable({ nodes, onOpen }: Props) {
                   />
                 </TableCell>
                 <TableCell>
-                  {n.traffic?.trafficLimit ? (
+                  {n.traffic?.trafficLimitGb ? (
                     <CellBar
                       value={(() => {
                         const used = (n.dynamic?.total_received ?? 0) + (n.dynamic?.total_transmitted ?? 0)
-                        return (used / n.traffic.trafficLimit) * 100
+                        const limit = n.traffic.trafficLimitGb * 1073741824
+                        return (used / limit) * 100
                       })()}
-                      hint={`${bytes((n.dynamic?.total_received ?? 0) + (n.dynamic?.total_transmitted ?? 0))} / ${bytes(n.traffic.trafficLimit)}`}
+                      hint={`${bytes((n.dynamic?.total_received ?? 0) + (n.dynamic?.total_transmitted ?? 0))} / ${bytes(n.traffic.trafficLimitGb * 1073741824)}`}
                     />
                   ) : (
                     <span className="text-muted-foreground text-sm">—</span>

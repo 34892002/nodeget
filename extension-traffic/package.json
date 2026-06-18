@@ -9,17 +9,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "@tailwindcss/postcss": "^4.3.1",
+    "postcss": "^8.5.15",
+    "vue": "^3.5.32"
   },
   "devDependencies": {
-    "@types/react": "^18.3.28",
-    "@types/react-dom": "^18.3.7",
-    "@vitejs/plugin-react": "^4.3.1",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.15",
-    "typescript": "^5.6.3",
-    "vite": "^5.4.11"
+    "@vitejs/plugin-vue": "^6.0.6",
+    "tailwindcss": "^4.3.1",
+    "vite": "^8.0.8",
+    "vitest": "^4.1.9"
   }
 }

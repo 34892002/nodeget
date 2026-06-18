@@ -3,7 +3,7 @@
   "icon": "icon.svg",
   "routes": [
     {
-      "type": "node",
+      "type": "global",
       "name": "traffic-config",
       "icon": "route-icon.svg",
       "entry": "index.html"

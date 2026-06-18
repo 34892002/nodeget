@@ -163,7 +163,7 @@ export function NodeDetail({ node, onClose, showSource, pool }: Props) {
           </div>
         </Section>
 
-        {node.traffic?.trafficLimit && (
+        {node.traffic?.trafficLimitGb && (
           <Section title="流量监控">
             <TrafficDetail
               traffic={node.traffic}
@@ -576,8 +576,9 @@ function TrafficDetail({
   totalReceived: number
   totalTransmitted: number
 }) {
+  const GB = 1073741824
   const used = totalReceived + totalTransmitted
-  const limit = traffic.trafficLimit!
+  const limit = traffic.trafficLimitGb! * GB
   const percent = (used / limit) * 100
   const over = percent >= 100
   const color = trafficColor(percent)
@@ -601,8 +602,8 @@ function TrafficDetail({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-        <KV k="流量上限" v={bytes(limit)} />
-        <KV k="重置周期" v={trafficPeriodLabel(traffic.trafficPeriod, traffic.trafficResetDay)} />
+        <KV k="流量上限" v={`${traffic.trafficLimitGb} GB`} />
+        <KV k="重置周期" v={trafficPeriodLabel(traffic.trafficPeriod)} />
         <KV k="已使用" v={<span className={statusClass}>{bytes(used)}</span>} />
         <KV k="剩余" v={over ? <span className="text-rose-500">0 B</span> : bytes(limit - used)} />
       </div>

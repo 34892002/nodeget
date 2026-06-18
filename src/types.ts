@@ -174,7 +174,6 @@ export interface Usage {
 }
 
 export interface TrafficConfig {
-  trafficLimit: number | null
-  trafficPeriod: 'monthly' | 'daily'
-  trafficResetDay: number
+  trafficLimitGb: number | null
+  trafficPeriod: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'never'
 }
