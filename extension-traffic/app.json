@@ -4,7 +4,7 @@
   "routes": [
     {
       "type": "global",
-      "name": "traffic-config",
+      "name": "流控配置",
       "icon": "route-icon.svg",
       "entry": "index.html"
     }
