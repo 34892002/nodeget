@@ -163,8 +163,8 @@ export function NodeDetail({ node, onClose, showSource, pool }: Props) {
           </div>
         </Section>
 
-        {node.traffic?.trafficLimitGb && (
-          <Section title="流量监控">
+        {node.traffic && (
+          <Section title={node.traffic.billingMode === 'payg' ? '流量计费' : '流量监控'}>
             <TrafficDetail
               traffic={node.traffic}
               totalReceived={d?.total_received ?? 0}
@@ -578,7 +578,72 @@ function TrafficDetail({
 }) {
   const GB = 1073741824
   const used = totalReceived + totalTransmitted
-  const limit = traffic.trafficLimitGb! * GB
+
+  // Payg mode
+  if (traffic.billingMode === 'payg') {
+    const included = traffic.trafficInclude ?? 0
+    const price = traffic.trafficPrice ?? 0
+    const usedGb = used / GB
+    const billableGb = Math.max(0, usedGb - included)
+    const cost = billableGb * price
+
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+          <KV k="已使用" v={`${usedGb.toFixed(2)} GB`} />
+          {included > 0 && <KV k="免费额度" v={`${included} GB`} />}
+          <KV k="单价" v={`¥${price}/GB`} />
+          <KV
+            k="计费流量"
+            v={<span className="text-amber-500 font-medium">{billableGb.toFixed(2)} GB</span>}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          {included > 0 ? (
+            <>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">额度使用</span>
+                <span className="font-mono">
+                  {usedGb <= included ? '在免费额度内' : '已超出免费额度'}
+                </span>
+              </div>
+              <div className="h-3 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className={cn('h-full rounded-full transition-all', usedGb > included ? 'bg-amber-500' : 'bg-blue-500')}
+                  style={{ width: `${Math.min((usedGb / included) * 100, 100)}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>{bytes(used)} / {included} GB 免费</span>
+                <span className="text-amber-500 font-mono">预估 ¥{cost.toFixed(2)}</span>
+              </div>
+            </>
+          ) : (
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>按使用量计费</span>
+              <span className="text-amber-500 font-mono">预估 ¥{cost.toFixed(2)}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // Unlimited quota
+  if (!traffic.trafficLimitGb) {
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+          <KV k="已使用" v={bytes(used)} />
+          <KV k="流量上限" v="不限流量" />
+        </div>
+      </div>
+    )
+  }
+
+  // Quota mode with limit
+  const limit = traffic.trafficLimitGb * GB
   const percent = (used / limit) * 100
   const over = percent >= 100
   const color = trafficColor(percent)

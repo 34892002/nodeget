@@ -51,6 +51,9 @@ const META_KEYS = [
   'metadata_expire_time',
   'metadata_traffic_limit',
   'metadata_traffic_period',
+  'metadata_billing_mode',
+  'metadata_traffic_price',
+  'metadata_traffic_include',
 ]
 const DYN_INTERVAL_MS = 2000
 const HISTORY_LIMIT = 60
@@ -77,13 +80,33 @@ function blankAgent(uuid: string, source: string): Agent {
 }
 
 function parseTraffic(raw: Record<string, unknown>): TrafficConfig | null {
+  const billingMode = raw.metadata_billing_mode === 'payg' ? 'payg' : 'quota'
+  const price = Number(raw.metadata_traffic_price)
+  const include = Number(raw.metadata_traffic_include)
   const limitGb = Number(raw.metadata_traffic_limit)
   const period = String(raw.metadata_traffic_period || '')
+
+  // payg mode: always return config
+  if (billingMode === 'payg') {
+    const validPeriods = ['hourly', 'daily', 'weekly', 'monthly', 'never'] as const
+    return {
+      billingMode: 'payg',
+      trafficLimitGb: Number.isFinite(limitGb) && limitGb > 0 ? limitGb : null,
+      trafficPeriod: validPeriods.includes(period as any) ? period as any : 'never',
+      trafficPrice: Number.isFinite(price) && price > 0 ? price : null,
+      trafficInclude: Number.isFinite(include) && include > 0 ? include : null,
+    }
+  }
+
+  // quota mode: require positive limit
   if (!Number.isFinite(limitGb) || limitGb <= 0) return null
   const validPeriods = ['hourly', 'daily', 'weekly', 'monthly', 'never'] as const
   return {
+    billingMode: 'quota',
     trafficLimitGb: limitGb,
     trafficPeriod: validPeriods.includes(period as any) ? period as any : 'monthly',
+    trafficPrice: null,
+    trafficInclude: null,
   }
 }
 

@@ -29,6 +29,54 @@ function parseTrafficConfig(kvData) {
   }
 }
 
+// ── 计费模式解析 (对应 useNodes.ts parseTraffic) ──
+
+const VALID_PERIODS = ['hourly', 'daily', 'weekly', 'monthly', 'never']
+
+function parseTrafficWithBilling(kvData) {
+  const billingMode = kvData.metadata_billing_mode === 'payg' ? 'payg' : 'quota'
+  const price = Number(kvData.metadata_traffic_price)
+  const include = Number(kvData.metadata_traffic_include)
+  const limitGb = Number(kvData.metadata_traffic_limit)
+  const period = String(kvData.metadata_traffic_period || '')
+
+  if (billingMode === 'payg') {
+    return {
+      billingMode: 'payg',
+      trafficLimitGb: Number.isFinite(limitGb) && limitGb > 0 ? limitGb : null,
+      trafficPeriod: VALID_PERIODS.includes(period) ? period : 'never',
+      trafficPrice: Number.isFinite(price) && price > 0 ? price : null,
+      trafficInclude: Number.isFinite(include) && include > 0 ? include : null,
+    }
+  }
+
+  if (!Number.isFinite(limitGb) || limitGb <= 0) return null
+  return {
+    billingMode: 'quota',
+    trafficLimitGb: limitGb,
+    trafficPeriod: VALID_PERIODS.includes(period) ? period : 'monthly',
+    trafficPrice: null,
+    trafficInclude: null,
+  }
+}
+
+// ── 按量计费费用计算 ──
+
+function calcPaygCost(totalReceived, totalTransmitted, price, includeGb) {
+  const GB = 1073741824
+  const usedGb = (totalReceived + totalTransmitted) / GB
+  const included = includeGb || 0
+  const billableGb = Math.max(0, usedGb - included)
+  return billableGb * price
+}
+
+function calcBillableGb(totalReceived, totalTransmitted, includeGb) {
+  const GB = 1073741824
+  const usedGb = (totalReceived + totalTransmitted) / GB
+  const included = includeGb || 0
+  return Math.max(0, usedGb - included)
+}
+
 function calcTrafficPercent(totalReceived, totalTransmitted, limitGb) {
   const GB = 1073741824
   const used = totalReceived + totalTransmitted
@@ -44,6 +92,141 @@ function trafficStatus(percent) {
 }
 
 // ── 测试 ──
+
+describe('parseTrafficWithBilling', () => {
+  it('quota 模式正常解析', () => {
+    const result = parseTrafficWithBilling({
+      metadata_billing_mode: 'quota',
+      metadata_traffic_limit: 1000,
+      metadata_traffic_period: 'monthly',
+    })
+    expect(result).toEqual({
+      billingMode: 'quota',
+      trafficLimitGb: 1000,
+      trafficPeriod: 'monthly',
+      trafficPrice: null,
+      trafficInclude: null,
+    })
+  })
+
+  it('payg 模式正常解析', () => {
+    const result = parseTrafficWithBilling({
+      metadata_billing_mode: 'payg',
+      metadata_traffic_price: 0.5,
+      metadata_traffic_include: 100,
+    })
+    expect(result).toEqual({
+      billingMode: 'payg',
+      trafficLimitGb: null,
+      trafficPeriod: 'never',
+      trafficPrice: 0.5,
+      trafficInclude: 100,
+    })
+  })
+
+  it('payg 模式无免费额度', () => {
+    const result = parseTrafficWithBilling({
+      metadata_billing_mode: 'payg',
+      metadata_traffic_price: 1,
+    })
+    expect(result.billingMode).toBe('payg')
+    expect(result.trafficPrice).toBe(1)
+    expect(result.trafficInclude).toBeNull()
+  })
+
+  it('payg 模式单价无效返回 null', () => {
+    const result = parseTrafficWithBilling({
+      metadata_billing_mode: 'payg',
+      metadata_traffic_price: -1,
+    })
+    expect(result.trafficPrice).toBeNull()
+  })
+
+  it('payg 模式可带有效 limit', () => {
+    const result = parseTrafficWithBilling({
+      metadata_billing_mode: 'payg',
+      metadata_traffic_limit: 500,
+      metadata_traffic_price: 0.8,
+    })
+    expect(result.billingMode).toBe('payg')
+    expect(result.trafficLimitGb).toBe(500)
+    expect(result.trafficPrice).toBe(0.8)
+  })
+
+  it('payg 模式无效 period 默认 never', () => {
+    const result = parseTrafficWithBilling({
+      metadata_billing_mode: 'payg',
+      metadata_traffic_price: 0.5,
+      metadata_traffic_period: 'invalid',
+    })
+    expect(result.trafficPeriod).toBe('never')
+  })
+
+  it('quota 模式 limit 为 0 返回 null', () => {
+    expect(parseTrafficWithBilling({
+      metadata_billing_mode: 'quota',
+      metadata_traffic_limit: 0,
+    })).toBeNull()
+  })
+
+  it('无 billing_mode 字段默认 quota', () => {
+    const result = parseTrafficWithBilling({
+      metadata_traffic_limit: 200,
+      metadata_traffic_period: 'weekly',
+    })
+    expect(result.billingMode).toBe('quota')
+    expect(result.trafficLimitGb).toBe(200)
+  })
+})
+
+describe('calcPaygCost', () => {
+  const GB = 1073741824
+
+  it('无免费额度：全部计费', () => {
+    const cost = calcPaygCost(200 * GB, 0, 0.5, 0)
+    expect(cost).toBeCloseTo(100, 1)
+  })
+
+  it('有免费额度：未超出免费额度费用为 0', () => {
+    const cost = calcPaygCost(50 * GB, 0, 0.5, 100)
+    expect(cost).toBe(0)
+  })
+
+  it('有免费额度：超出部分计费', () => {
+    const cost = calcPaygCost(200 * GB, 0, 0.5, 100)
+    expect(cost).toBeCloseTo(50, 1)
+  })
+
+  it('收发合计计算', () => {
+    const cost = calcPaygCost(100 * GB, 100 * GB, 1, 150)
+    expect(cost).toBeCloseTo(50, 1)
+  })
+
+  it('零流量费用为 0', () => {
+    const cost = calcPaygCost(0, 0, 0.5, 100)
+    expect(cost).toBe(0)
+  })
+})
+
+describe('calcBillableGb', () => {
+  const GB = 1073741824
+
+  it('无免费额度：全部可计费', () => {
+    expect(calcBillableGb(200 * GB, 0, 0)).toBeCloseTo(200, 1)
+  })
+
+  it('未超出免费额度：可计费为 0', () => {
+    expect(calcBillableGb(50 * GB, 0, 100)).toBe(0)
+  })
+
+  it('超出免费额度：超出部分', () => {
+    expect(calcBillableGb(200 * GB, 0, 100)).toBeCloseTo(100, 1)
+  })
+
+  it('精确满额：可计费为 0', () => {
+    expect(calcBillableGb(100 * GB, 0, 100)).toBeCloseTo(0, 1)
+  })
+})
 
 describe('parsePeriod', () => {
   it('有效周期直接返回', () => {

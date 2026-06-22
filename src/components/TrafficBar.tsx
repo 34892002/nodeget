@@ -1,4 +1,4 @@
-import { Wifi } from 'lucide-react'
+import { Wifi, DollarSign } from 'lucide-react'
 import { Progress } from './ui/progress'
 import { bytes, pct, trafficPeriodLabel } from '../utils/format'
 import { trafficColor } from '../utils/cn'
@@ -15,10 +15,83 @@ interface Props {
 
 export function TrafficBar({ traffic, totalReceived, totalTransmitted, compact }: Props) {
   const used = totalReceived + totalTransmitted
-  const hasLimit = !!traffic?.trafficLimitGb
 
-  if (!hasLimit) {
-    // No traffic config — show unlimited display
+  // No config at all
+  if (!traffic) {
+    return null
+  }
+
+  // Payg mode
+  if (traffic.billingMode === 'payg') {
+    const included = traffic.trafficInclude ?? 0
+    const price = traffic.trafficPrice ?? 0
+    const usedGb = used / GB
+    const billableGb = Math.max(0, usedGb - included)
+    const cost = billableGb * price
+
+    if (compact) {
+      return (
+        <div className="min-w-0" title="按量计费">
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground flex items-center gap-1">
+              <DollarSign className="h-3 w-3" />
+              流量计费
+            </span>
+            <span className="font-mono text-amber-500 font-semibold">
+              ¥{cost.toFixed(2)}
+            </span>
+          </div>
+          <div className="font-mono text-[11px] text-muted-foreground mt-1.5 truncate">
+            已用 {usedGb.toFixed(1)} GB{included > 0 ? ` / 含 ${included} GB` : ''}
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+            <DollarSign className="h-4 w-4" />
+            流量计费
+          </span>
+          <span className="text-xs text-muted-foreground">
+            ¥{price}/GB
+          </span>
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="font-mono font-medium">
+            {usedGb.toFixed(2)} GB
+          </span>
+          {included > 0 && (
+            <span className="text-muted-foreground">含 {included} GB 免费</span>
+          )}
+        </div>
+        {included > 0 && (
+          <Progress
+            value={Math.min((usedGb / included) * 100, 100)}
+            indicatorClassName={usedGb > included ? 'bg-amber-500' : 'bg-blue-500'}
+            className="h-2.5"
+          />
+        )}
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>
+            {included > 0 && usedGb <= included ? (
+              '在免费额度内'
+            ) : included > 0 ? (
+              <span className="text-amber-500">已超出免费额度</span>
+            ) : (
+              '按使用量计费'
+            )}
+          </span>
+          <span className="font-mono text-amber-500">预估 ¥{cost.toFixed(2)}</span>
+        </div>
+      </div>
+    )
+  }
+
+  // Unlimited (quota + never)
+  if (!traffic.trafficLimitGb) {
     if (compact) {
       return (
         <div className="min-w-0" title="不限流量">
@@ -63,14 +136,15 @@ export function TrafficBar({ traffic, totalReceived, totalTransmitted, compact }
     )
   }
 
-  const limit = traffic!.trafficLimitGb! * GB
+  // Quota mode with limit
+  const limit = traffic.trafficLimitGb * GB
   const percent = (used / limit) * 100
   const over = percent >= 100
   const color = trafficColor(percent)
 
   if (compact) {
     return (
-      <div className="min-w-0" title={trafficPeriodLabel(traffic!.trafficPeriod)}>
+      <div className="min-w-0" title={trafficPeriodLabel(traffic.trafficPeriod)}>
         <div className="flex justify-between text-xs">
           <span className="text-muted-foreground flex items-center gap-1">
             <Wifi className="h-3 w-3" />
@@ -100,7 +174,7 @@ export function TrafficBar({ traffic, totalReceived, totalTransmitted, compact }
           流量使用
         </span>
         <span className="text-xs text-muted-foreground">
-          {trafficPeriodLabel(traffic!.trafficPeriod)}
+          {trafficPeriodLabel(traffic.trafficPeriod)}
         </span>
       </div>
       <div className="flex items-center justify-between text-sm">

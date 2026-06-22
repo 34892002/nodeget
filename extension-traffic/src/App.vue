@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 sm:p-6 transition-colors">
+  <div class="min-h-screen bg-white dark:bg-gray-950 p-4 sm:p-6 transition-colors">
     <div class="max-w-5xl mx-auto">
       <!-- Loading -->
       <div v-if="loading" class="min-h-screen flex items-center justify-center text-gray-500 dark:text-gray-400">
@@ -23,7 +23,7 @@
         <div class="mb-6">
           <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100">流量监控配置</h1>
           <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            为每个节点配置流量上限，状态展示页面将显示流量进度条
+            为每个节点配置流量上限或按量计费，状态展示页面将显示对应信息
           </p>
         </div>
 
@@ -37,9 +37,9 @@
                 <tr class="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
                   <th class="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400">名称</th>
                   <th class="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400 hidden sm:table-cell">地区</th>
-                  <th class="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400 hidden md:table-cell">流量上限</th>
+                  <th class="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400 hidden md:table-cell">计费方式</th>
                   <th class="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400 hidden md:table-cell">已使用</th>
-                  <th class="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400 hidden lg:table-cell">重置周期</th>
+                  <th class="text-left px-4 py-3 font-medium text-gray-500 dark:text-gray-400 hidden lg:table-cell">配置详情</th>
                   <th class="text-right px-4 py-3 font-medium text-gray-500 dark:text-gray-400">操作</th>
                 </tr>
               </thead>
@@ -54,10 +54,16 @@
                     <div class="flex items-center gap-2">
                       <span class="font-medium text-gray-900 dark:text-gray-100">{{ node.name }}</span>
                       <span
-                        v-if="node.trafficLimitGb"
+                        v-if="node.billingMode === 'payg'"
+                        class="text-[10px] bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded"
+                      >
+                        按量计费
+                      </span>
+                      <span
+                        v-else-if="node.trafficLimitGb"
                         class="text-[10px] bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded"
                       >
-                        已配置
+                        额度制
                       </span>
                       <span
                         v-else
@@ -73,15 +79,27 @@
                       {{ node.region }}
                     </span>
                   </td>
-                  <td class="px-4 py-3 font-mono text-gray-700 dark:text-gray-300 hidden md:table-cell">
-                    <span v-if="node.trafficLimitGb">{{ node.trafficLimitGb }} GB</span>
-                    <span v-else class="text-gray-400 dark:text-gray-500">∞</span>
+                  <td class="px-4 py-3 hidden md:table-cell">
+                    <span v-if="node.billingMode === 'payg'" class="text-xs text-amber-600 dark:text-amber-400">
+                      {{ node.trafficPrice ? `¥${node.trafficPrice}/GB` : '未设单价' }}
+                    </span>
+                    <span v-else-if="node.trafficLimitGb" class="text-xs text-gray-600 dark:text-gray-400">
+                      {{ node.trafficLimitGb }} GB / {{ periodLabel(node.trafficPeriod) }}
+                    </span>
+                    <span v-else class="text-xs text-gray-400 dark:text-gray-500">∞</span>
                   </td>
                   <td class="px-4 py-3 font-mono text-gray-700 dark:text-gray-300 hidden md:table-cell">
                     {{ formatBytes(node.totalReceived + node.totalTransmitted) }}
                   </td>
-                  <td class="px-4 py-3 text-gray-600 dark:text-gray-400 hidden lg:table-cell">
-                    {{ node.trafficLimitGb ? periodLabel(node.trafficPeriod) : '不限流量' }}
+                  <td class="px-4 py-3 text-gray-600 dark:text-gray-400 hidden lg:table-cell text-xs">
+                    <template v-if="node.billingMode === 'payg'">
+                      <span v-if="node.trafficInclude">含 {{ node.trafficInclude }} GB 免费</span>
+                      <span v-else>无免费额度</span>
+                    </template>
+                    <template v-else-if="node.trafficLimitGb">
+                      {{ periodLabel(node.trafficPeriod) }}
+                    </template>
+                    <template v-else>不限流量</template>
                   </td>
                   <td class="px-4 py-3 text-right">
                     <button
@@ -146,42 +164,106 @@
 
               <!-- Body -->
               <div class="px-6 py-4 space-y-4">
-                <div class="grid grid-cols-2 gap-3">
-                  <div>
-                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">流量上限 (GB)</label>
-                    <input
-                      type="number"
-                      v-model.number="modalLimitGb"
-                      placeholder="例如: 1000"
-                      min="1"
-                      class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
-                    />
-                  </div>
-                  <div>
-                    <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">流量重置</label>
-                    <select
-                      v-model="modalPeriod"
-                      class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                <!-- Billing mode toggle -->
+                <div>
+                  <label class="block text-xs text-gray-500 dark:text-gray-400 mb-2">计费方式</label>
+                  <div class="flex gap-2">
+                    <button
+                      @click="modalBillingMode = 'quota'"
+                      :class="[
+                        'flex-1 px-3 py-2 text-sm rounded-md border transition-colors text-center',
+                        modalBillingMode === 'quota'
+                          ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700 text-blue-700 dark:text-blue-400'
+                          : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+                      ]"
                     >
-                      <option value="hourly">每小时</option>
-                      <option value="daily">每天</option>
-                      <option value="weekly">每周</option>
-                      <option value="monthly">每月</option>
-                      <option value="never">不限流量</option>
-                    </select>
+                      <div class="font-medium">额度制</div>
+                      <div class="text-[10px] mt-0.5 opacity-70">设置流量上限和重置周期</div>
+                    </button>
+                    <button
+                      @click="modalBillingMode = 'payg'"
+                      :class="[
+                        'flex-1 px-3 py-2 text-sm rounded-md border transition-colors text-center',
+                        modalBillingMode === 'payg'
+                          ? 'bg-amber-50 dark:bg-amber-900/30 border-amber-300 dark:border-amber-700 text-amber-700 dark:text-amber-400'
+                          : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
+                      ]"
+                    >
+                      <div class="font-medium">按量计费</div>
+                      <div class="text-[10px] mt-0.5 opacity-70">设置单价和免费额度</div>
+                    </button>
                   </div>
                 </div>
 
-                <!-- Info when period is never -->
-                <p v-if="modalPeriod === 'never'" class="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-md">
-                  选择「不限流量」时，流量上限仅用于展示已用量，不会限制节点访问。
-                </p>
+                <!-- Quota mode fields -->
+                <template v-if="modalBillingMode === 'quota'">
+                  <div class="grid grid-cols-2 gap-3">
+                    <div>
+                      <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">流量上限 (GB)</label>
+                      <input
+                        type="number"
+                        v-model.number="modalLimitGb"
+                        placeholder="例如: 1000"
+                        min="1"
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">流量重置</label>
+                      <select
+                        v-model="modalPeriod"
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="hourly">每小时</option>
+                        <option value="daily">每天</option>
+                        <option value="weekly">每周</option>
+                        <option value="monthly">每月</option>
+                        <option value="never">不限流量</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <p v-if="modalPeriod === 'never'" class="text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-3 py-2 rounded-md">
+                    选择「不限流量」时，流量上限仅用于展示已用量，不会限制节点访问。
+                  </p>
+                </template>
+
+                <!-- Payg mode fields -->
+                <template v-if="modalBillingMode === 'payg'">
+                  <div class="grid grid-cols-2 gap-3">
+                    <div>
+                      <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">单价 (元/GB)</label>
+                      <input
+                        type="number"
+                        v-model.number="modalPrice"
+                        placeholder="例如: 0.5"
+                        min="0"
+                        step="0.01"
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
+                      />
+                    </div>
+                    <div>
+                      <label class="block text-xs text-gray-500 dark:text-gray-400 mb-1">免费额度 (GB)</label>
+                      <input
+                        type="number"
+                        v-model.number="modalInclude"
+                        placeholder="例如: 100"
+                        min="0"
+                        class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-400 dark:placeholder-gray-500"
+                      />
+                    </div>
+                  </div>
+
+                  <p class="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 rounded-md">
+                    按量计费模式下，已使用的总流量乘以单价计算费用。设置免费额度后，超出部分才开始计费。
+                  </p>
+                </template>
               </div>
 
               <!-- Footer -->
               <div class="px-6 pb-6 pt-2 flex items-center justify-between gap-2">
                 <button
-                  v-if="modalNode.trafficLimitGb"
+                  v-if="hasExistingConfig"
                   @click="handleClear"
                   :disabled="modalSaving"
                   class="px-4 py-2 text-sm bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
@@ -214,7 +296,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { fetchAllNodes, saveTrafficConfig, clearTrafficConfig } from './lib/api'
 
 const PERIOD_LABELS = {
@@ -243,9 +325,18 @@ const error = ref(null)
 
 // Modal state
 const modalNode = ref(null)
+const modalBillingMode = ref('quota')
 const modalLimitGb = ref(null)
 const modalPeriod = ref('monthly')
+const modalPrice = ref(null)
+const modalInclude = ref(null)
 const modalSaving = ref(false)
+
+const hasExistingConfig = computed(() => {
+  const n = modalNode.value
+  if (!n) return false
+  return n.billingMode === 'payg' || !!n.trafficLimitGb
+})
 
 async function loadNodes() {
   loading.value = true
@@ -262,8 +353,11 @@ async function loadNodes() {
 
 function openModal(node) {
   modalNode.value = node
+  modalBillingMode.value = node.billingMode || 'quota'
   modalLimitGb.value = node.trafficLimitGb || null
   modalPeriod.value = node.trafficPeriod || 'monthly'
+  modalPrice.value = node.trafficPrice || null
+  modalInclude.value = node.trafficInclude || null
 }
 
 function closeModal() {
@@ -274,23 +368,35 @@ function closeModal() {
 async function handleSave() {
   const node = modalNode.value
   if (!node) return
-  // For "never" period, allow null limit; otherwise require positive number
-  if (modalPeriod.value !== 'never') {
-    if (!modalLimitGb.value || modalLimitGb.value <= 0) {
-      alert('请输入有效的流量上限 (GB)')
+
+  if (modalBillingMode.value === 'payg') {
+    if (!modalPrice.value || modalPrice.value <= 0) {
+      alert('请输入有效的单价 (元/GB)')
       return
     }
+  } else {
+    if (modalPeriod.value !== 'never') {
+      if (!modalLimitGb.value || modalLimitGb.value <= 0) {
+        alert('请输入有效的流量上限 (GB)')
+        return
+      }
+    }
   }
-  const limitGb = modalPeriod.value === 'never' ? (modalLimitGb.value || 1) : modalLimitGb.value
+
+  const limitGb = modalBillingMode.value === 'payg'
+    ? null
+    : modalPeriod.value === 'never' ? (modalLimitGb.value || 1) : modalLimitGb.value
 
   modalSaving.value = true
   try {
     await saveTrafficConfig(node.uuid, {
+      billingMode: modalBillingMode.value,
       trafficLimitGb: limitGb,
-      trafficPeriod: modalPeriod.value,
+      trafficPeriod: modalBillingMode.value === 'payg' ? 'never' : modalPeriod.value,
+      trafficPrice: modalBillingMode.value === 'payg' ? modalPrice.value : null,
+      trafficInclude: modalBillingMode.value === 'payg' ? (modalInclude.value || null) : null,
     })
     await loadNodes()
-    // Refresh modalNode reference if it still exists
     const updated = nodes.value.find(n => n.uuid === node.uuid)
     if (updated) {
       modalNode.value = updated

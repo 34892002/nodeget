@@ -174,6 +174,9 @@ export interface Usage {
 }
 
 export interface TrafficConfig {
+  billingMode: 'quota' | 'payg'
   trafficLimitGb: number | null
   trafficPeriod: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'never'
+  trafficPrice: number | null
+  trafficInclude: number | null
 }
