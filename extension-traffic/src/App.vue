@@ -63,7 +63,7 @@
                         v-else-if="node.trafficLimitGb"
                         class="text-[10px] bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded"
                       >
-                        固定流量
+                        流量额度
                       </span>
                       <span
                         v-else
@@ -130,10 +130,9 @@
         <div
           v-if="modalNode"
           class="fixed inset-0 z-50 flex items-center justify-center p-4"
-          @click.self="closeModal"
         >
-          <!-- Backdrop -->
-          <div class="absolute inset-0 bg-black/50 dark:bg-black/70" @click="closeModal" />
+          <!-- Backdrop - no click to close -->
+          <div class="absolute inset-0 bg-black/50 dark:bg-black/70" />
 
           <!-- Dialog -->
           <Transition
@@ -177,7 +176,7 @@
                           : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
                       ]"
                     >
-                      <div class="font-medium">固定流量</div>
+                      <div class="font-medium">流量额度</div>
                       <div class="text-[10px] mt-0.5 opacity-70">设置流量上限和重置周期</div>
                     </button>
                     <button
@@ -258,6 +257,11 @@
                     按量计费模式下，已使用的总流量乘以单价计算费用。设置免费额度后，超出部分才开始计费。
                   </p>
                 </template>
+
+                <!-- Validation error -->
+                <p v-if="modalError" class="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-3 py-2 rounded-md">
+                  {{ modalError }}
+                </p>
               </div>
 
               <!-- Footer -->
@@ -268,7 +272,7 @@
                   :disabled="modalSaving"
                   class="px-4 py-2 text-sm bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-md hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
                 >
-                  清除配置
+                  {{ modalSaving ? '清除中...' : '清除配置' }}
                 </button>
                 <div v-else />
                 <div class="flex gap-2">
@@ -331,10 +335,12 @@ const modalPeriod = ref('monthly')
 const modalPrice = ref(null)
 const modalInclude = ref(null)
 const modalSaving = ref(false)
+const modalError = ref('')
 
 const hasExistingConfig = computed(() => {
   const n = modalNode.value
   if (!n) return false
+  // 有任何配置就算有：payg 模式，或有 trafficLimitGb，或 billingMode 被显式设置过
   return n.billingMode === 'payg' || !!n.trafficLimitGb
 })
 
@@ -358,30 +364,37 @@ function openModal(node) {
   modalPeriod.value = node.trafficPeriod || 'monthly'
   modalPrice.value = node.trafficPrice || null
   modalInclude.value = node.trafficInclude || null
+  modalError.value = ''
 }
 
 function closeModal() {
   modalNode.value = null
   modalSaving.value = false
+  modalError.value = ''
 }
 
-async function handleSave() {
-  const node = modalNode.value
-  if (!node) return
-
+function validate() {
   if (modalBillingMode.value === 'payg') {
     if (!modalPrice.value || modalPrice.value <= 0) {
-      alert('请输入有效的单价 (元/GB)')
-      return
+      modalError.value = '请输入有效的单价 (元/GB)'
+      return false
     }
   } else {
     if (modalPeriod.value !== 'never') {
       if (!modalLimitGb.value || modalLimitGb.value <= 0) {
-        alert('请输入有效的流量上限 (GB)')
-        return
+        modalError.value = '请输入有效的流量上限 (GB)'
+        return false
       }
     }
   }
+  return true
+}
+
+async function handleSave() {
+  modalError.value = ''
+  const node = modalNode.value
+  if (!node) return
+  if (!validate()) return
 
   const limitGb = modalBillingMode.value === 'payg'
     ? null
@@ -403,32 +416,38 @@ async function handleSave() {
     } else {
       closeModal()
     }
-    alert('保存成功')
+    modalError.value = ''
   } catch (e) {
-    alert('保存失败: ' + (e.message || e))
+    modalError.value = '保存失败: ' + (e.message || e)
   } finally {
     modalSaving.value = false
   }
 }
 
 async function handleClear() {
+  modalError.value = ''
   const node = modalNode.value
   if (!node) return
-  if (!confirm('确定清除该节点的流量配置？')) return
 
   modalSaving.value = true
   try {
     await clearTrafficConfig(node.uuid)
     await loadNodes()
+    // 刷新 modalNode 为清除后的新对象
     const updated = nodes.value.find(n => n.uuid === node.uuid)
     if (updated) {
       modalNode.value = updated
+      modalBillingMode.value = updated.billingMode || 'quota'
+      modalLimitGb.value = updated.trafficLimitGb || null
+      modalPeriod.value = updated.trafficPeriod || 'monthly'
+      modalPrice.value = updated.trafficPrice || null
+      modalInclude.value = updated.trafficInclude || null
     } else {
       closeModal()
     }
-    alert('已清除')
+    modalError.value = ''
   } catch (e) {
-    alert('清除失败: ' + (e.message || e))
+    modalError.value = '清除失败: ' + (e.message || e)
   } finally {
     modalSaving.value = false
   }
