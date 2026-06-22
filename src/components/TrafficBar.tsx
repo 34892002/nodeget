@@ -16,13 +16,8 @@ interface Props {
 export function TrafficBar({ traffic, totalReceived, totalTransmitted, compact }: Props) {
   const used = totalReceived + totalTransmitted
 
-  // No config at all
-  if (!traffic) {
-    return null
-  }
-
   // Payg mode
-  if (traffic.billingMode === 'payg') {
+  if (traffic?.billingMode === 'payg') {
     const included = traffic.trafficInclude ?? 0
     const price = traffic.trafficPrice ?? 0
     const usedGb = used / GB
@@ -41,9 +36,25 @@ export function TrafficBar({ traffic, totalReceived, totalTransmitted, compact }
               ¥{cost.toFixed(2)}
             </span>
           </div>
-          <div className="font-mono text-[11px] text-muted-foreground mt-1.5 truncate">
-            已用 {usedGb.toFixed(1)} GB{included > 0 ? ` / 含 ${included} GB` : ''}
-          </div>
+          {included > 0 ? (
+            <>
+              <Progress
+                value={Math.min((usedGb / included) * 100, 100)}
+                indicatorClassName={usedGb > included ? 'bg-amber-500' : 'bg-blue-500'}
+                className="mt-1 h-1.5"
+              />
+              <div className="font-mono text-[11px] text-muted-foreground mt-1 truncate">
+                {usedGb.toFixed(1)} GB / 含 {included} GB
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="mt-1 h-1.5 rounded-full bg-muted" />
+              <div className="font-mono text-[11px] text-muted-foreground mt-1 truncate">
+                已用 {usedGb.toFixed(1)} GB
+              </div>
+            </>
+          )}
         </div>
       )
     }
@@ -90,21 +101,32 @@ export function TrafficBar({ traffic, totalReceived, totalTransmitted, compact }
     )
   }
 
-  // Unlimited (quota + never)
-  if (!traffic.trafficLimitGb) {
+  // Quota mode with limit
+  if (traffic?.trafficLimitGb) {
+    const limit = traffic.trafficLimitGb * GB
+    const percent = (used / limit) * 100
+    const over = percent >= 100
+    const color = trafficColor(percent)
+
     if (compact) {
       return (
-        <div className="min-w-0" title="不限流量">
+        <div className="min-w-0" title={trafficPeriodLabel(traffic.trafficPeriod)}>
           <div className="flex justify-between text-xs">
             <span className="text-muted-foreground flex items-center gap-1">
               <Wifi className="h-3 w-3" />
               流量
             </span>
-            <span className="font-mono text-muted-foreground">∞</span>
+            <span className={`font-mono ${over ? 'text-rose-500 font-semibold' : ''}`}>
+              {pct(Math.min(percent, 100))}
+            </span>
           </div>
-          <div className="mt-1 h-1.5 rounded-full bg-muted" />
+          <Progress
+            value={Math.min(percent, 100)}
+            indicatorClassName={color}
+            className="mt-1 h-1.5"
+          />
           <div className="font-mono text-[11px] text-muted-foreground mt-1 truncate">
-            {bytes(used)} / ∞
+            {bytes(used)} / {bytes(limit)}
           </div>
         </div>
       )
@@ -118,49 +140,52 @@ export function TrafficBar({ traffic, totalReceived, totalTransmitted, compact }
             流量使用
           </span>
           <span className="text-xs text-muted-foreground">
-            不限流量
+            {trafficPeriodLabel(traffic.trafficPeriod)}
           </span>
         </div>
         <div className="flex items-center justify-between text-sm">
-          <span className="font-mono font-medium">
+          <span className={`font-mono font-medium ${over ? 'text-rose-500' : ''}`}>
             {bytes(used)}
           </span>
-          <span className="text-muted-foreground">/ ∞</span>
+          <span className="text-muted-foreground">/ {bytes(limit)}</span>
         </div>
-        <div className="h-2.5 rounded-full bg-muted" />
+        <Progress
+          value={Math.min(percent, 100)}
+          indicatorClassName={color}
+          className="h-2.5"
+        />
         <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>不限流量</span>
-          <span className="font-mono">{bytes(used)}</span>
+          <span>
+            {over ? (
+              <span className="text-rose-500 font-medium">已超出限制!</span>
+            ) : percent >= 90 ? (
+              <span className="text-rose-500">即将用尽</span>
+            ) : percent >= 75 ? (
+              <span className="text-amber-500">用量较高</span>
+            ) : (
+              '用量正常'
+            )}
+          </span>
+          <span className="font-mono">{pct(percent)}</span>
         </div>
       </div>
     )
   }
 
-  // Quota mode with limit
-  const limit = traffic.trafficLimitGb * GB
-  const percent = (used / limit) * 100
-  const over = percent >= 100
-  const color = trafficColor(percent)
-
+  // No config / unlimited — always render for consistent card height
   if (compact) {
     return (
-      <div className="min-w-0" title={trafficPeriodLabel(traffic.trafficPeriod)}>
+      <div className="min-w-0" title="不限流量">
         <div className="flex justify-between text-xs">
           <span className="text-muted-foreground flex items-center gap-1">
             <Wifi className="h-3 w-3" />
             流量
           </span>
-          <span className={`font-mono ${over ? 'text-rose-500 font-semibold' : ''}`}>
-            {pct(Math.min(percent, 100))}
-          </span>
+          <span className="font-mono text-muted-foreground">∞</span>
         </div>
-        <Progress
-          value={Math.min(percent, 100)}
-          indicatorClassName={color}
-          className="mt-1 h-1.5"
-        />
+        <div className="mt-1 h-1.5 rounded-full bg-muted" />
         <div className="font-mono text-[11px] text-muted-foreground mt-1 truncate">
-          {bytes(used)} / {bytes(limit)}
+          {bytes(used)} / ∞
         </div>
       </div>
     )
@@ -174,33 +199,19 @@ export function TrafficBar({ traffic, totalReceived, totalTransmitted, compact }
           流量使用
         </span>
         <span className="text-xs text-muted-foreground">
-          {trafficPeriodLabel(traffic.trafficPeriod)}
+          不限流量
         </span>
       </div>
       <div className="flex items-center justify-between text-sm">
-        <span className={`font-mono font-medium ${over ? 'text-rose-500' : ''}`}>
+        <span className="font-mono font-medium">
           {bytes(used)}
         </span>
-        <span className="text-muted-foreground">/ {bytes(limit)}</span>
+        <span className="text-muted-foreground">/ ∞</span>
       </div>
-      <Progress
-        value={Math.min(percent, 100)}
-        indicatorClassName={color}
-        className="h-2.5"
-      />
+      <div className="h-2.5 rounded-full bg-muted" />
       <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>
-          {over ? (
-            <span className="text-rose-500 font-medium">已超出限制!</span>
-          ) : percent >= 90 ? (
-            <span className="text-rose-500">即将用尽</span>
-          ) : percent >= 75 ? (
-            <span className="text-amber-500">用量较高</span>
-          ) : (
-            '用量正常'
-          )}
-        </span>
-        <span className="font-mono">{pct(percent)}</span>
+        <span>不限流量</span>
+        <span className="font-mono">{bytes(used)}</span>
       </div>
     </div>
   )

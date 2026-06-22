@@ -63,7 +63,7 @@
                         v-else-if="node.trafficLimitGb"
                         class="text-[10px] bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-400 px-1.5 py-0.5 rounded"
                       >
-                        额度制
+                        固定流量
                       </span>
                       <span
                         v-else
@@ -177,7 +177,7 @@
                           : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600'
                       ]"
                     >
-                      <div class="font-medium">额度制</div>
+                      <div class="font-medium">固定流量</div>
                       <div class="text-[10px] mt-0.5 opacity-70">设置流量上限和重置周期</div>
                     </button>
                     <button
@@ -403,6 +403,7 @@ async function handleSave() {
     } else {
       closeModal()
     }
+    alert('保存成功')
   } catch (e) {
     alert('保存失败: ' + (e.message || e))
   } finally {
@@ -419,7 +420,13 @@ async function handleClear() {
   try {
     await clearTrafficConfig(node.uuid)
     await loadNodes()
-    closeModal()
+    const updated = nodes.value.find(n => n.uuid === node.uuid)
+    if (updated) {
+      modalNode.value = updated
+    } else {
+      closeModal()
+    }
+    alert('已清除')
   } catch (e) {
     alert('清除失败: ' + (e.message || e))
   } finally {
