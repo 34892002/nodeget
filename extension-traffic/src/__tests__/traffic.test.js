@@ -7,7 +7,7 @@ const PERIOD_LABELS = {
   daily: '每天',
   weekly: '每周',
   monthly: '每月',
-  never: '从不',
+  never: '不限流量',
 }
 
 function periodLabel(period) {
@@ -67,7 +67,7 @@ describe('periodLabel', () => {
     expect(periodLabel('daily')).toBe('每天')
     expect(periodLabel('weekly')).toBe('每周')
     expect(periodLabel('monthly')).toBe('每月')
-    expect(periodLabel('never')).toBe('从不')
+    expect(periodLabel('never')).toBe('不限流量')
   })
 
   it('未知周期默认每月', () => {

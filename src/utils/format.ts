@@ -32,7 +32,7 @@ export function trafficPeriodLabel(period: string) {
     daily: '每天重置',
     weekly: '每周重置',
     monthly: '每月重置',
-    never: '从不重置',
+    never: '不限流量',
   }
   return map[period] || '每月重置'
 }

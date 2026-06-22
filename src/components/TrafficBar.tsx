@@ -14,17 +14,63 @@ interface Props {
 }
 
 export function TrafficBar({ traffic, totalReceived, totalTransmitted, compact }: Props) {
-  if (!traffic?.trafficLimitGb) return null
-
   const used = totalReceived + totalTransmitted
-  const limit = traffic.trafficLimitGb * GB
+  const hasLimit = !!traffic?.trafficLimitGb
+
+  if (!hasLimit) {
+    // No traffic config — show unlimited display
+    if (compact) {
+      return (
+        <div className="min-w-0" title="不限流量">
+          <div className="flex justify-between text-xs">
+            <span className="text-muted-foreground flex items-center gap-1">
+              <Wifi className="h-3 w-3" />
+              流量
+            </span>
+            <span className="font-mono text-muted-foreground">∞</span>
+          </div>
+          <div className="mt-1 h-1.5 rounded-full bg-muted" />
+          <div className="font-mono text-[11px] text-muted-foreground mt-1 truncate">
+            {bytes(used)} / ∞
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted-foreground flex items-center gap-1.5">
+            <Wifi className="h-4 w-4" />
+            流量使用
+          </span>
+          <span className="text-xs text-muted-foreground">
+            不限流量
+          </span>
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="font-mono font-medium">
+            {bytes(used)}
+          </span>
+          <span className="text-muted-foreground">/ ∞</span>
+        </div>
+        <div className="h-2.5 rounded-full bg-muted" />
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>不限流量</span>
+          <span className="font-mono">{bytes(used)}</span>
+        </div>
+      </div>
+    )
+  }
+
+  const limit = traffic!.trafficLimitGb! * GB
   const percent = (used / limit) * 100
   const over = percent >= 100
   const color = trafficColor(percent)
 
   if (compact) {
     return (
-      <div className="min-w-0" title={trafficPeriodLabel(traffic.trafficPeriod)}>
+      <div className="min-w-0" title={trafficPeriodLabel(traffic!.trafficPeriod)}>
         <div className="flex justify-between text-xs">
           <span className="text-muted-foreground flex items-center gap-1">
             <Wifi className="h-3 w-3" />
@@ -54,7 +100,7 @@ export function TrafficBar({ traffic, totalReceived, totalTransmitted, compact }
           流量使用
         </span>
         <span className="text-xs text-muted-foreground">
-          {trafficPeriodLabel(traffic.trafficPeriod)}
+          {trafficPeriodLabel(traffic!.trafficPeriod)}
         </span>
       </div>
       <div className="flex items-center justify-between text-sm">
