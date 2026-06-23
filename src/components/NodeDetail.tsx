@@ -577,7 +577,8 @@ function TrafficDetail({
   totalTransmitted: number
 }) {
   const GB = 1073741824
-  const used = totalReceived + totalTransmitted
+  // 优先使用 Worker 计算的周期用量，没有则 fallback 到累计值
+  const used = traffic.trafficUsed ?? (totalReceived + totalTransmitted)
 
   // Payg mode
   if (traffic.billingMode === 'payg') {

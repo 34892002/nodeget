@@ -54,6 +54,7 @@ const META_KEYS = [
   'metadata_billing_mode',
   'metadata_traffic_price',
   'metadata_traffic_include',
+  'metadata_traffic_used',
 ]
 const DYN_INTERVAL_MS = 2000
 const HISTORY_LIMIT = 60
@@ -85,6 +86,7 @@ function parseTraffic(raw: Record<string, unknown>): TrafficConfig | null {
   const include = Number(raw.metadata_traffic_include)
   const limitGb = Number(raw.metadata_traffic_limit)
   const period = String(raw.metadata_traffic_period || '')
+  const trafficUsed = Number(raw.metadata_traffic_used)
 
   // payg mode: always return config
   if (billingMode === 'payg') {
@@ -95,6 +97,7 @@ function parseTraffic(raw: Record<string, unknown>): TrafficConfig | null {
       trafficPeriod: validPeriods.includes(period as any) ? period as any : 'never',
       trafficPrice: Number.isFinite(price) && price > 0 ? price : null,
       trafficInclude: Number.isFinite(include) && include > 0 ? include : null,
+      trafficUsed: Number.isFinite(trafficUsed) ? trafficUsed : null,
     }
   }
 
@@ -107,6 +110,7 @@ function parseTraffic(raw: Record<string, unknown>): TrafficConfig | null {
     trafficPeriod: validPeriods.includes(period as any) ? period as any : 'monthly',
     trafficPrice: null,
     trafficInclude: null,
+    trafficUsed: Number.isFinite(trafficUsed) ? trafficUsed : null,
   }
 }
 

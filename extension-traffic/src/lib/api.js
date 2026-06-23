@@ -56,6 +56,7 @@ const META_KEYS = [
   'metadata_billing_mode',
   'metadata_traffic_price',
   'metadata_traffic_include',
+  'metadata_traffic_used',
 ]
 
 export async function fetchAllNodes() {
@@ -99,6 +100,7 @@ export async function fetchAllNodes() {
       trafficPeriod: parsePeriod(period),
       trafficPrice: Number.isFinite(price) && price > 0 ? price : null,
       trafficInclude: Number.isFinite(include) && include > 0 ? include : null,
+      trafficUsed: Number(kv.metadata_traffic_used) || 0,
       totalReceived: dyn.total_received ?? 0,
       totalTransmitted: dyn.total_transmitted ?? 0,
     }
@@ -127,5 +129,8 @@ export async function clearTrafficConfig(uuid) {
     kvSetValue(uuid, 'metadata_traffic_period', null),
     kvSetValue(uuid, 'metadata_traffic_price', null),
     kvSetValue(uuid, 'metadata_traffic_include', null),
+    kvSetValue(uuid, 'metadata_traffic_used', null),
+    kvSetValue(uuid, 'metadata_traffic_period_start', null),
+    kvSetValue(uuid, 'metadata_traffic_period_base', null),
   ])
 }

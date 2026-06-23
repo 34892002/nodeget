@@ -14,7 +14,8 @@ interface Props {
 }
 
 export function TrafficBar({ traffic, totalReceived, totalTransmitted, compact }: Props) {
-  const used = totalReceived + totalTransmitted
+  // 优先使用 Worker 计算的周期用量，没有则 fallback 到累计值
+  const used = traffic?.trafficUsed ?? (totalReceived + totalTransmitted)
 
   // Payg mode
   if (traffic?.billingMode === 'payg') {

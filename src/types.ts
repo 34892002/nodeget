@@ -179,4 +179,5 @@ export interface TrafficConfig {
   trafficPeriod: 'hourly' | 'daily' | 'weekly' | 'monthly' | 'never'
   trafficPrice: number | null
   trafficInclude: number | null
+  trafficUsed: number | null
 }
