@@ -96,11 +96,11 @@ export function NodeTable({ nodes, onOpen }: Props) {
                   {n.traffic?.trafficLimitGb ? (
                     <CellBar
                       value={(() => {
-                        const used = (n.dynamic?.total_received ?? 0) + (n.dynamic?.total_transmitted ?? 0)
-                        const limit = n.traffic.trafficLimitGb * 1073741824
+                        const used = n.traffic!.trafficUsed ?? ((n.dynamic?.total_received ?? 0) + (n.dynamic?.total_transmitted ?? 0))
+                        const limit = n.traffic!.trafficLimitGb! * 1073741824
                         return (used / limit) * 100
                       })()}
-                      hint={`${bytes((n.dynamic?.total_received ?? 0) + (n.dynamic?.total_transmitted ?? 0))} / ${bytes(n.traffic.trafficLimitGb * 1073741824)}`}
+                      hint={`${bytes(n.traffic!.trafficUsed ?? ((n.dynamic?.total_received ?? 0) + (n.dynamic?.total_transmitted ?? 0)))} / ${bytes(n.traffic!.trafficLimitGb! * 1073741824)}`}
                     />
                   ) : (
                     <span className="text-muted-foreground text-sm">—</span>
